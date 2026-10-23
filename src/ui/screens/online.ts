@@ -6,7 +6,7 @@ import { CHAT_MAX, actionOf, type ActionToken, type ChoiceToken, type Preset } f
 import { OnlineSession } from '../../net/session.ts';
 import type { Nav, Screen } from '../app.ts';
 import { button, h } from '../dom.ts';
-import { eventCard, logView, nameTag, panel, playerClass, resetLogView, statusPanel } from '../parts.ts';
+import { eventCard, logView, nameTag, panel, playerClass, resetLogView, statusPanel, youAre } from '../parts.ts';
 import { loadOnlineName, saveOnlineName } from '../storage.ts';
 import { PROMISE_NAME, PROMISE_SPEECH, randomName, ROLE_LABEL, roleCardInfo } from '../text.ts';
 import { actionChoice } from './game.ts';
@@ -289,7 +289,8 @@ function gameView(nav: Nav, s: OnlineScreen, session: OnlineSession): HTMLElemen
     { class: 'screen' },
     gameHeader(nav, g, self),
     banner,
-    statusPanel(g, names),
+    youAre(me, names),
+    statusPanel(g, names, me),
     phaseView(nav, session, me, peer),
     logView(g.history, names),
   );

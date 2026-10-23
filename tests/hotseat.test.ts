@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Ending } from '../src/engine/types.ts';
 import { describeEnding, describeRound } from '../src/ui/describe.ts';
 import { Hotseat } from '../src/ui/hotseat.ts';
-import { lastLog, setup } from './helpers.ts';
+import { ev, lastLog, setup } from './helpers.ts';
 
 const names = { husband: 'たろう', wife: 'はなこ' };
 
@@ -52,6 +52,30 @@ describe('1台で2人の手順(SPEC 5.1)', () => {
     expect(hs.stage).toEqual({ kind: 'allChosen' });
     hs.reveal();
     expect(hs.game.phase === 'action' && hs.game.promises).toEqual({ husband: 'you', wife: 'me' });
+  });
+
+  it('相談なしなら、イベント公開のあとすぐ約束カードへ進む', () => {
+    const hs = new Hotseat(setup({ weight: 2, rest: [ev(1), { kind: 'sudachi' }] }), names, false);
+    hs.confirmEvent(false);
+    expect(hs.game.phase).toBe('promise');
+    hs.startSecret();
+    hs.ready();
+    hs.pickPromise('together');
+    hs.passOn();
+    hs.ready();
+    hs.pickPromise('together');
+    hs.reveal();
+    hs.startSecret();
+    hs.ready();
+    hs.pickAction({ card: 'do' });
+    hs.passOn();
+    hs.ready();
+    hs.pickAction({ card: 'do' });
+    hs.reveal();
+    hs.next();
+    hs.confirmEvent(false);
+    expect(hs.game.phase).toBe('promise');
+    expect(hs.game.round).toBe(2);
   });
 
   it('2人ともダウンなら、すぐ「2人とも選びました」', () => {

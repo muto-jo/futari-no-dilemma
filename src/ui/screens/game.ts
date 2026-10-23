@@ -96,10 +96,14 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
                 'div',
                 { class: 'actions' },
                 button(jikkaLabel(g.event.weight), act(() => hs.confirmEvent(true)), 'btn'),
-                button('使わずに相談へ', act(() => hs.confirmEvent(false)), 'btn primary'),
+                button(hs.consult ? '使わずに相談へ' : '使わずに進む', act(() => hs.confirmEvent(false)), 'btn primary'),
               ),
             )
-          : h('div', { class: 'actions' }, button('相談へ', act(() => hs.confirmEvent(false)), 'btn primary big')),
+          : h(
+              'div',
+              { class: 'actions' },
+              button(hs.consult ? '相談へ' : '約束カードへ', act(() => hs.confirmEvent(false)), 'btn primary big'),
+            ),
       );
     }
     case 'consult':
@@ -141,8 +145,11 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
         'div',
         { class: 'phase' },
         eventCard(g.turn.event, g.turn.weight),
+        // 相談なしでは相談の画面を通らないので、ダウンのお知らせをここで出す
+        hs.consult ? null : downNotices(g, names),
         panel(
           '約束カード',
+          hs.consult ? null : h('p', { class: 'note' }, '相談なしのルールです。'),
           h('p', null, '1人ずつ、ほかの人に見えないように選びます。'),
           h('div', { class: 'actions' }, button('約束カードを選ぶ', act(() => hs.startSecret()), 'btn primary big')),
         ),

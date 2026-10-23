@@ -6,6 +6,7 @@ import { button, h } from '../dom.ts';
 import { nameTag, playerClass, resetLogView } from '../parts.ts';
 import { initialNameFor, randomNameFor, ROLE_LABEL, roleCardInfo } from '../text.ts';
 import { randomSeed } from './setup.ts';
+import { segmented } from './shared.ts';
 
 /** 「設定を変える」で戻ったときのために覚えておく */
 const picked: {
@@ -16,33 +17,6 @@ const picked: {
   /** この画面で名前を入力した。入力済みなら、役を入れ替えても名前はそのまま */
   typed: boolean;
 } = { role: 'husband', typeId: null, name: null, typed: false };
-
-function segmented<T extends string | null>(
-  label: string,
-  options: readonly { value: T; label: string }[],
-  current: T,
-  onPick: (v: T) => void,
-  disabled: boolean,
-  row = false,
-): HTMLElement {
-  const buttons = options.map((o) =>
-    h(
-      'button',
-      {
-        type: 'button',
-        class: 'choice compact',
-        'aria-pressed': String(o.value === current),
-        disabled,
-        onclick: () => {
-          onPick(o.value);
-          buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(options[i]!.value === o.value)));
-        },
-      },
-      h('span', { class: 'choice-label' }, o.label),
-    ),
-  );
-  return h('div', { class: 'field', role: 'group', 'aria-label': label }, h('div', { class: 'field-label' }, label), h('div', { class: row ? 'choices row' : 'choices' }, buttons));
-}
 
 export function renderAiSetup(nav: Nav, dealt: AiMatch | null): HTMLElement {
   const locked = dealt !== null;

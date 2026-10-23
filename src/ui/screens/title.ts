@@ -23,5 +23,15 @@ export function renderTitle(nav: Nav): HTMLElement {
       ),
       button('ルール', () => nav.go({ name: 'rules', back: { name: 'title' } }), 'btn big'),
     ),
+    h(
+      'footer',
+      { class: 'title-foot' },
+      h('p', null, 'パパ育コミュなど非営利の場での利用は自由です。製品化・商用利用をご希望の方はご連絡ください。'),
+      h(
+        'p',
+        null,
+        h('a', { href: 'https://github.com/muto-jo/futari-no-dilemma', target: '_blank', rel: 'noopener noreferrer' }, 'ソースコードとライセンス(GitHub)'),
+      ),
+    ),
   );
 }

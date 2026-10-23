@@ -3,10 +3,16 @@ import { PARAMS } from '../engine/params.ts';
 import { ROLES, type EventCard, type GameState, type PerRole, type Role, type RoundLog } from '../engine/types.ts';
 import { describeRound } from './describe.ts';
 import { h, type Child } from './dom.ts';
-import { ROLE_LABEL, roleCardInfo } from './text.ts';
+import { OUTCOME_LABEL } from './reflect.ts';
+import { ACTION_NAME, PROMISE_NAME, ROLE_LABEL, roleCardInfo } from './text.ts';
 
 /** 2人を区別する中立な2色(CSS の --p-husband / --p-wife) */
 export const playerClass = (r: Role) => `p-${r}`;
+
+/** 「あなた: たろう(夫役)」の表示(AIと対戦・オンライン対戦) */
+export function youAre(me: Role, names: PerRole<string>): HTMLElement {
+  return h('p', { class: `you-are ${playerClass(me)}` }, 'あなた: ', nameTag(me, names), h('b', null, `${ROLE_LABEL[me]}役`));
+}
 
 export function nameTag(r: Role, names: PerRole<string>): HTMLElement {
   return h('span', { class: `name-tag ${playerClass(r)}` }, names[r]);
@@ -28,7 +34,8 @@ function tokens(n: number, limit: number, label: string): HTMLElement {
   );
 }
 
-export function statusPanel(g: GameState, names: PerRole<string>): HTMLElement {
+/** me を渡すと、その人の枠に「あなた」の印を付ける(AIと対戦・オンライン対戦) */
+export function statusPanel(g: GameState, names: PerRole<string>, me: Role | null = null): HTMLElement {
   const fam = g.family;
   const scale = Math.max(20, fam);
   const pct = (x: number) => `${Math.max(0, Math.min(100, (x / scale) * 100))}%`;
@@ -52,17 +59,18 @@ export function statusPanel(g: GameState, names: PerRole<string>): HTMLElement {
       h('div', { class: 'note' }, '10以上で巣立ちを迎えると家族成功'),
     ),
     h('div', { class: `phase-note${g.lateGame ? ' late' : ''}` }, phaseNote),
-    h('div', { class: 'players' }, ROLES.map((r) => playerBox(g, r, names))),
+    h('div', { class: 'players' }, ROLES.map((r) => playerBox(g, r, names, me))),
   );
 }
 
-function playerBox(g: GameState, r: Role, names: PerRole<string>): HTMLElement {
+function playerBox(g: GameState, r: Role, names: PerRole<string>, me: Role | null): HTMLElement {
   const p = g.players[r];
   const down = p.tired >= PARAMS.downTired;
   const card = roleCardInfo(p.roleCard);
   return h(
     'div',
-    { class: `player ${playerClass(r)}` },
+    { class: `player ${playerClass(r)}${r === me ? ' me' : ''}` },
+    r === me ? h('span', { class: 'badge you' }, 'あなた') : null,
     h(
       'div',
       { class: 'player-head' },
@@ -121,15 +129,7 @@ export function logView(history: readonly RoundLog[], names: PerRole<string>): H
     'details',
     { class: 'log', open: logOpen },
     h('summary', null, `これまでのログ(${history.length}ラウンド)`),
-    [...history].reverse().map((l) => {
-      const t = describeRound(l, names);
-      return h(
-        'div',
-        { class: 'log-round' },
-        h('h4', null, t.title),
-        h('ul', null, [...t.reveal, ...t.lines].map((x) => h('li', null, x))),
-      );
-    }),
+    [...history].reverse().map((l) => logRound(l, names)),
   );
   details.addEventListener('toggle', () => {
     logOpen = details.open;
@@ -139,4 +139,81 @@ export function logView(history: readonly RoundLog[], names: PerRole<string>): H
 
 export function resetLogView(): void {
   logOpen = false;
+}
+
+const plus = (label: string, n: number) => (n > 0 ? `${label}+${n}` : null);
+
+/** ログの1ラウンド: 見出し(結果と家庭ゲージの変化)、2人それぞれの変化、くわしい説明 */
+function logRound(l: RoundLog, names: PerRole<string>): HTMLElement {
+  const t = describeRound(l, names);
+  const familyBefore = l.familyAfter - l.familyDelta;
+  return h(
+    'div',
+    { class: 'log-round' },
+    h(
+      'div',
+      { class: 'log-head' },
+      h('b', null, `第${l.round}ラウンド`),
+      h('span', null, `${l.event.name}(重さ${l.weight})`),
+      h('span', { class: `tag ${l.outcome.kind}` }, OUTCOME_LABEL[l.outcome.kind]),
+    ),
+    h('div', { class: 'log-family' }, `家庭ゲージ ${familyBefore} → ${l.familyAfter}`),
+    h(
+      'ul',
+      { class: 'log-players' },
+      ROLES.map((r) => {
+        const changes = [
+          `疲労→${l.tiredAfter[r]}`,
+          plus('不満', l.grudgeAdded[r]),
+          plus('自由時間', l.freeGain[r]),
+          plus('思い出', l.memoryGain[r]),
+          plus('信頼', l.trustGain[r]),
+        ].filter((x): x is string => x !== null);
+        return h(
+          'li',
+          { class: playerClass(r) },
+          h('b', null, names[r]),
+          ` 「${PROMISE_NAME(l.promises[r])}」→「${ACTION_NAME[l.actions[r]]}」${l.down[r] ? '(ダウン中)' : ''}`,
+          h('span', { class: 'log-changes' }, changes.join(' ')),
+        );
+      }),
+    ),
+    h('ul', { class: 'log-lines' }, t.lines.map((x) => h('li', null, x))),
+  );
+}
+
+/** 家庭ゲージの推移(結果画面) */
+export function familyChart(history: readonly RoundLog[]): HTMLElement | null {
+  if (history.length === 0) return null;
+  const values = [PARAMS.initialFamily, ...history.map((l) => l.familyAfter)];
+  const max = Math.max(20, ...values);
+  const min = Math.min(0, ...values);
+  const W = 300;
+  const H = 120;
+  const pad = 8;
+  const x = (i: number) => pad + (i / Math.max(1, values.length - 1)) * (W - pad * 2);
+  const y = (v: number) => pad + ((max - v) / (max - min)) * (H - pad * 2);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'family-chart');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `家庭ゲージの推移: ${values.join('、')}`);
+  const el = (tag: string, attrs: Record<string, string | number>) => {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    svg.append(e);
+    return e;
+  };
+  el('line', { x1: pad, x2: W - pad, y1: y(0), y2: y(0), class: 'axis' });
+  el('line', { x1: pad, x2: W - pad, y1: y(PARAMS.successFamily), y2: y(PARAMS.successFamily), class: 'goal' });
+  el('polyline', { points: values.map((v, i) => `${x(i)},${y(v)}`).join(' '), class: 'line' });
+  const last = values[values.length - 1]!;
+  el('circle', { cx: x(values.length - 1), cy: y(last), r: 4, class: 'dot-end' });
+  return h(
+    'figure',
+    { class: 'chart' },
+    svg,
+    h('figcaption', { class: 'note' }, `家庭ゲージの推移(はじめ ${values[0]} → 最後 ${last})。点線は家族成功の目安(10)`),
+  );
 }

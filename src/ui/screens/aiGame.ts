@@ -2,7 +2,7 @@
 import type { AiMatch, ConsultLine } from '../aiMatch.ts';
 import type { Nav } from '../app.ts';
 import { button, h } from '../dom.ts';
-import { eventCard, logView, nameTag, panel, playerClass, statusPanel } from '../parts.ts';
+import { eventCard, logView, nameTag, panel, playerClass, statusPanel, youAre } from '../parts.ts';
 import { PROMISE_NAME, PROMISE_SPEECH, roleCardInfo } from '../text.ts';
 import { actionChoice } from './game.ts';
 import {
@@ -22,7 +22,8 @@ export function renderAiGame(nav: Nav, m: AiMatch): HTMLElement {
     'main',
     { class: 'screen' },
     gameHeader(nav, g, { name: 'aiGame', match: m }),
-    statusPanel(g, m.names),
+    youAre(m.human, m.names),
+    statusPanel(g, m.names, m.human),
     phaseView(nav, m),
     logView(g.history, m.names),
   );

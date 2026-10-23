@@ -19,21 +19,26 @@ export class Hotseat {
   game: GameState;
   stage: SecretStage = { kind: 'idle' };
   readonly names: PerRole<string>;
+  /** 相談フェイズを使うか。false なら相談をせずに約束カードへ進む */
+  readonly consult: boolean;
   #promises: Partial<Record<Role, PromiseCard>> = {};
   #actions: Partial<Record<Role, ActionChoice>> = {};
   #order: Role[] = [];
 
-  constructor(game: GameState, names: PerRole<string>) {
+  constructor(game: GameState, names: PerRole<string>, consult = true) {
     this.game = game;
     this.names = names;
+    this.consult = consult;
   }
 
-  static start(names: PerRole<string>, seed: number): Hotseat {
-    return new Hotseat(createGame({ seed, names }), names);
+  static start(names: PerRole<string>, seed: number, consult = true): Hotseat {
+    return new Hotseat(createGame({ seed, names }), names, consult);
   }
 
   confirmEvent(useJikka: boolean): void {
     this.game = step(this.game, { type: 'confirmEvent', useJikka });
+    // 相談なしなら、相談フェイズをそのまま終える
+    if (!this.consult) this.endConsult();
   }
 
   endConsult(): void {

@@ -4,6 +4,7 @@ import { button, h } from '../dom.ts';
 import { Hotseat } from '../hotseat.ts';
 import { nameTag, playerClass, resetLogView } from '../parts.ts';
 import { initialNameFor, randomNameFor, ROLE_LABEL, roleCardInfo } from '../text.ts';
+import { segmented } from './shared.ts';
 
 export function randomSeed(): number {
   try {
@@ -12,6 +13,9 @@ export function randomSeed(): number {
     return Math.floor(Math.random() * 2 ** 32);
   }
 }
+
+/** 「名前を変える」で戻ったときのために覚えておく */
+const picked = { consult: true };
 
 export function renderSetup(nav: Nav, dealt: Hotseat | null): HTMLElement {
   const inputs = {} as Record<Role, HTMLInputElement>;
@@ -40,10 +44,29 @@ export function renderSetup(nav: Nav, dealt: Hotseat | null): HTMLElement {
       wife: inputs.wife.value.trim() || randomNameFor('wife'),
     };
     nav.setNames(names);
-    nav.go({ name: 'setup', dealt: Hotseat.start(names, randomSeed()) });
+    nav.go({ name: 'setup', dealt: Hotseat.start(names, randomSeed(), picked.consult) });
   };
 
-  const body: HTMLElement[] = [h('section', { class: 'panel' }, h('h3', null, 'プレイヤー'), ROLES.map(field))];
+  const body: HTMLElement[] = [
+    h('section', { class: 'panel' }, h('h3', null, 'プレイヤー'), ROLES.map(field)),
+    h(
+      'section',
+      { class: 'panel' },
+      h('h3', null, 'ルール'),
+      segmented(
+        '相談フェイズ',
+        [
+          { value: 'on', label: 'あり' },
+          { value: 'off', label: 'なし' },
+        ],
+        (dealt ? dealt.consult : picked.consult) ? 'on' : 'off',
+        (v) => (picked.consult = v === 'on'),
+        dealt !== null,
+        true,
+      ),
+      h('p', { class: 'note' }, '「なし」にすると、相談をせずに約束カード → 行動カードへ進みます。'),
+    ),
+  ];
 
   if (dealt === null) {
     body.push(h('div', { class: 'actions' }, button('役割カードを配る', deal, 'btn primary big')));

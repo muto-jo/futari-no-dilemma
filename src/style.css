@@ -511,6 +511,138 @@ h4 {
   font-size: 0.85rem;
   text-align: center;
 }
+/* ---- 自分の役 ---- */
+.you-are {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+.you-are b {
+  color: var(--p);
+}
+.player {
+  position: relative;
+}
+.player.me {
+  box-shadow: 0 0 0 3px var(--p);
+}
+.badge.you {
+  position: absolute;
+  top: -10px;
+  right: 8px;
+  background: var(--p);
+  color: var(--surface);
+  padding: 0 8px;
+  border-radius: 999px;
+}
+
+/* ---- ログ ---- */
+.log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.tag {
+  font-size: 0.75rem;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.tag.agreed,
+.tag.bothDo {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.tag.bothDelegate {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.log-family {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.log-players {
+  list-style: none;
+  padding: 0 !important;
+  margin: 4px 0 0 !important;
+}
+.log-players li {
+  border-left: 4px solid var(--p);
+  padding: 2px 8px;
+  margin-top: 4px;
+}
+.log-changes {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.log-lines {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---- 振り返り ---- */
+.chart {
+  margin: 0;
+}
+.family-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.family-chart .line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.family-chart .goal {
+  stroke: var(--muted);
+  stroke-dasharray: 4 4;
+}
+.family-chart .axis {
+  stroke: var(--line);
+}
+.family-chart .dot-end {
+  fill: var(--accent);
+}
+.question {
+  font-weight: 700;
+  margin: 0 0 4px !important;
+}
+.facts {
+  font-size: 0.9rem;
+  color: var(--muted);
+  padding-left: 1.1em !important;
+}
+.types {
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+.types summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 32px;
+}
+.questions > li + li {
+  margin-top: 14px;
+}
+
+/* ---- タイトルの下 ---- */
+.title-foot {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.title-foot a {
+  color: inherit;
+}
+
 /* ---- オンライン ---- */
 .room-code {
   font-size: 2.6rem;

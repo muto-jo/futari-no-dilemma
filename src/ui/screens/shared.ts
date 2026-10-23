@@ -5,7 +5,7 @@ import type { Nav, Screen } from '../app.ts';
 import { describeEnding } from '../describe.ts';
 import { button, h } from '../dom.ts';
 import { eventCard, nameTag, panel, playerClass, roundResult } from '../parts.ts';
-import { PROMISE_NAME, PROMISE_SPEECH, progressCard } from '../text.ts';
+import { PROMISE_NAME, PROMISE_SPEECH, progressCard, ROLE_LABEL } from '../text.ts';
 
 export function gameHeader(nav: Nav, g: GameState, self: Screen): HTMLElement {
   const quit = () => {
@@ -17,6 +17,39 @@ export function gameHeader(nav: Nav, g: GameState, self: Screen): HTMLElement {
     button('タイトルへ', quit, 'btn small ghost'),
     h('h1', null, g.phase === 'ended' ? 'ゲーム終了' : `第${g.round}ラウンド`),
     button('ルール', () => nav.go({ name: 'rules', back: self }), 'btn small ghost'),
+  );
+}
+
+/** 選択肢から1つを選ぶボタンの組(準備画面の設定に使う) */
+export function segmented<T extends string | null>(
+  label: string,
+  options: readonly { value: T; label: string }[],
+  current: T,
+  onPick: (v: T) => void,
+  disabled: boolean,
+  row = false,
+): HTMLElement {
+  const buttons = options.map((o) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'choice compact',
+        'aria-pressed': String(o.value === current),
+        disabled,
+        onclick: () => {
+          onPick(o.value);
+          buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(options[i]!.value === o.value)));
+        },
+      },
+      h('span', { class: 'choice-label' }, o.label),
+    ),
+  );
+  return h(
+    'div',
+    { class: 'field', role: 'group', 'aria-label': label },
+    h('div', { class: 'field-label' }, label),
+    h('div', { class: row ? 'choices row' : 'choices' }, buttons),
   );
 }
 
@@ -97,7 +130,7 @@ export function choicePanel(
   );
   const buttonOf = (key: string) => buttons[choices.findIndex((c) => c.key === key)];
   return panel(
-    h('span', null, nameTag(who, names), ` ${title}`),
+    h('span', null, nameTag(who, names), `(${ROLE_LABEL[who]}役)${title}`),
     h('div', { class: 'choices' }, buttons),
     h('div', { class: 'actions' }, ok),
   );
