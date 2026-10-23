@@ -7,7 +7,8 @@ import { OnlineSession } from '../../net/session.ts';
 import type { Nav, Screen } from '../app.ts';
 import { button, h } from '../dom.ts';
 import { eventCard, logView, nameTag, panel, playerClass, resetLogView, statusPanel } from '../parts.ts';
-import { isDefaultName, PROMISE_NAME, PROMISE_SPEECH, randomName, ROLE_LABEL, roleCardInfo } from '../text.ts';
+import { loadOnlineName, saveOnlineName } from '../storage.ts';
+import { PROMISE_NAME, PROMISE_SPEECH, randomName, ROLE_LABEL, roleCardInfo } from '../text.ts';
 import { actionChoice } from './game.ts';
 import {
   choicePanel,
@@ -76,11 +77,8 @@ export function renderOnline(nav: Nav, s: OnlineScreen): HTMLElement {
 // ---- 部屋を作る/入る --------------------------------------------------
 
 function lobby(nav: Nav): HTMLElement {
-  // 名前を自分で入れたことがなければ、候補からランダムに選ぶ(役名の「夫」「妻」と紛れないように)
-  if (form.name === null) {
-    const saved = nav.names[form.role];
-    form.name = isDefaultName(saved) ? randomName() : saved;
-  }
+  // 前にオンラインで使った名前がなければ、候補からランダムに選ぶ(役名の「夫」「妻」と紛れないように)
+  if (form.name === null) form.name = loadOnlineName() ?? randomName();
   const nameInput = h('input', {
     id: 'online-name',
     type: 'text',
@@ -136,7 +134,7 @@ function lobby(nav: Nav): HTMLElement {
     }
     const name = myName();
     form.name = name;
-    nav.setNames({ ...nav.names, [form.role]: name });
+    saveOnlineName(name);
     form.busy = true;
     form.error = '';
     nav.render();

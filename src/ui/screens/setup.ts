@@ -3,7 +3,7 @@ import type { Nav } from '../app.ts';
 import { button, h } from '../dom.ts';
 import { Hotseat } from '../hotseat.ts';
 import { nameTag, playerClass, resetLogView } from '../parts.ts';
-import { DEFAULT_NAMES, ROLE_LABEL, roleCardInfo } from '../text.ts';
+import { initialNameFor, randomNameFor, ROLE_LABEL, roleCardInfo } from '../text.ts';
 
 export function randomSeed(): number {
   try {
@@ -19,7 +19,8 @@ export function renderSetup(nav: Nav, dealt: Hotseat | null): HTMLElement {
     const input = h('input', {
       id: `name-${r}`,
       type: 'text',
-      value: nav.names[r],
+      // 配ったあとは、その名前を表示する
+      value: dealt ? dealt.names[r] : initialNameFor(r, nav.names[r]),
       maxlength: 12,
       autocomplete: 'off',
       disabled: dealt !== null,
@@ -35,8 +36,8 @@ export function renderSetup(nav: Nav, dealt: Hotseat | null): HTMLElement {
 
   const deal = () => {
     const names = {
-      husband: inputs.husband.value.trim() || DEFAULT_NAMES.husband,
-      wife: inputs.wife.value.trim() || DEFAULT_NAMES.wife,
+      husband: inputs.husband.value.trim() || randomNameFor('husband'),
+      wife: inputs.wife.value.trim() || randomNameFor('wife'),
     };
     nav.setNames(names);
     nav.go({ name: 'setup', dealt: Hotseat.start(names, randomSeed()) });

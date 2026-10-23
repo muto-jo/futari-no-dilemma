@@ -16,6 +16,26 @@ export function loadNames(): PerRole<string> {
   }
 }
 
+const ONLINE_KEY = 'futari-no-dilemma:online-name';
+
+/** オンライン対戦で使う自分の名前(役ごとの名前とは別に持つ) */
+export function loadOnlineName(): string | null {
+  try {
+    const v = localStorage.getItem(ONLINE_KEY);
+    return v && v.trim() ? v.trim().slice(0, 12) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveOnlineName(name: string): void {
+  try {
+    localStorage.setItem(ONLINE_KEY, name);
+  } catch {
+    // 保存できなくても遊べる
+  }
+}
+
 export function saveNames(names: PerRole<string>): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(names));

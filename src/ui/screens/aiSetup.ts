@@ -4,11 +4,18 @@ import { AI_TYPES, AiMatch, type AiTypeId } from '../aiMatch.ts';
 import type { Nav } from '../app.ts';
 import { button, h } from '../dom.ts';
 import { nameTag, playerClass, resetLogView } from '../parts.ts';
-import { DEFAULT_NAMES, ROLE_LABEL, roleCardInfo } from '../text.ts';
+import { initialNameFor, randomNameFor, ROLE_LABEL, roleCardInfo } from '../text.ts';
 import { randomSeed } from './setup.ts';
 
 /** 「設定を変える」で戻ったときのために覚えておく */
-const picked: { role: Role; typeId: AiTypeId | null } = { role: 'husband', typeId: null };
+const picked: {
+  role: Role;
+  typeId: AiTypeId | null;
+  /** null はまだ決めていない(最初の表示で決める) */
+  name: string | null;
+  /** この画面で名前を入力した。入力済みなら、役を入れ替えても名前はそのまま */
+  typed: boolean;
+} = { role: 'husband', typeId: null, name: null, typed: false };
 
 function segmented<T extends string | null>(
   label: string,
@@ -39,18 +46,25 @@ function segmented<T extends string | null>(
 
 export function renderAiSetup(nav: Nav, dealt: AiMatch | null): HTMLElement {
   const locked = dealt !== null;
+  // 保存済みの名前がなければ、選んでいる役の候補からランダムに
+  if (picked.name === null) picked.name = initialNameFor(picked.role, nav.names[picked.role]);
   const nameInput = h('input', {
     id: 'name-me',
     type: 'text',
-    value: nav.names[picked.role],
+    value: dealt ? dealt.names[dealt.human] : picked.name,
     maxlength: 12,
     autocomplete: 'off',
     disabled: locked,
+    oninput: () => {
+      picked.name = nameInput.value;
+      picked.typed = true;
+    },
   });
 
   const deal = () => {
     const role = picked.role;
-    const name = nameInput.value.trim() || DEFAULT_NAMES[role];
+    const name = nameInput.value.trim() || randomNameFor(role);
+    picked.name = name;
     nav.setNames({ ...nav.names, [role]: name });
     const m = new AiMatch({ humanRole: role, humanName: name, typeId: picked.typeId, seed: randomSeed() });
     nav.go({ name: 'aiSetup', dealt: m });
@@ -65,8 +79,11 @@ export function renderAiSetup(nav: Nav, dealt: AiMatch | null): HTMLElement {
       ROLES.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}役` })),
       picked.role,
       (r) => {
-        // 名前が既定のままなら、選んだ役の保存済みの名前に合わせる
-        if (nameInput.value === nav.names[picked.role]) nameInput.value = nav.names[r];
+        // まだ名前を入力していなければ、選んだ役の名前(保存済みか候補から)に入れ替える
+        if (!picked.typed && r !== picked.role) {
+          picked.name = initialNameFor(r, nav.names[r]);
+          nameInput.value = picked.name;
+        }
         picked.role = r;
       },
       locked,
