@@ -511,6 +511,48 @@ h4 {
   font-size: 0.85rem;
   text-align: center;
 }
+/* ---- オンライン ---- */
+.room-code {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 12px !important;
+  user-select: all;
+}
+.waiting {
+  text-align: center;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.chat-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 12px;
+  min-height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+#online-code {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+}
+
 .ai-reveal {
   font-size: 1.3rem;
 }

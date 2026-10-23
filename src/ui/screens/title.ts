@@ -16,7 +16,11 @@ export function renderTitle(nav: Nav): HTMLElement {
       { class: 'menu' },
       button('1台で2人', () => nav.go({ name: 'setup', dealt: null }), 'btn primary big'),
       button('AIと対戦', () => nav.go({ name: 'aiSetup', dealt: null }), 'btn big'),
-      button(h('span', null, 'オンライン対戦', h('small', null, '準備中')), () => {}, 'btn big', { disabled: true }),
+      button(
+        'オンライン対戦',
+        () => nav.go({ name: 'online', session: null, code: null, strategy: 'nostr', since: Date.now() }),
+        'btn big',
+      ),
       button('ルール', () => nav.go({ name: 'rules', back: { name: 'title' } }), 'btn big'),
     ),
   );

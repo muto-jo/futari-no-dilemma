@@ -27,7 +27,7 @@ export function jikkaLabel(weight: number): string {
 }
 
 /** 思春期に入った最初のラウンドなら、そのお知らせ */
-export function shishunkiNotice(g: Extract<GameState, { phase: 'event' }>): HTMLElement | null {
+export function shishunkiNotice(g: GameState): HTMLElement | null {
   const enteredLate = g.lateGame && !g.history[g.history.length - 1]?.lateGame;
   if (!enteredLate) return null;
   const c = progressCard('P_SHISHUNKI');
@@ -60,17 +60,21 @@ export interface Choice {
   readonly sub?: string;
 }
 
-/** カードを1枚選んで「これに決める」。選んでいる途中の状態はこの部品の中だけに持つ */
+/**
+ * カードを1枚選んで「これに決める」。選んでいる途中の状態はこの部品の中に持つ。
+ * 描き直しても選択を保ちたいときは initial と onSelect で外に預ける
+ */
 export function choicePanel(
   who: Role,
   names: PerRole<string>,
   title: string,
   choices: readonly Choice[],
   decide: (key: string) => void,
+  keep: { initial?: string | null; onSelect?: (key: string) => void } = {},
 ): HTMLElement {
-  let selected: string | null = null;
+  let selected: string | null = choices.some((c) => c.key === keep.initial) ? keep.initial! : null;
   const ok = button('これに決める', () => selected !== null && decide(selected), 'btn primary big', {
-    disabled: true,
+    disabled: selected === null,
   });
   const buttons = choices.map((c) =>
     h(
@@ -78,10 +82,11 @@ export function choicePanel(
       {
         type: 'button',
         class: 'choice',
-        'aria-pressed': 'false',
+        'aria-pressed': String(c.key === selected),
         'data-key': c.key,
         onclick: () => {
           selected = c.key;
+          keep.onSelect?.(c.key);
           for (const b of buttons) b.setAttribute('aria-pressed', String(b === buttonOf(c.key)));
           ok.disabled = false;
         },
@@ -98,13 +103,23 @@ export function choicePanel(
   );
 }
 
-export function resolvedView(g: Extract<GameState, { phase: 'resolved' }>, names: PerRole<string>, next: () => void): HTMLElement {
+export function resolvedView(
+  g: Extract<GameState, { phase: 'resolved' }>,
+  names: PerRole<string>,
+  next: () => void,
+  /** オンラインで、相手を待っているときの表示 */
+  waiting: string | null = null,
+): HTMLElement {
   return h(
     'div',
     { class: 'phase' },
     eventCard(g.last.event, g.last.weight),
     roundResult(g.last, names),
-    h('div', { class: 'actions' }, button('次のラウンドへ', next, 'btn primary big')),
+    h(
+      'div',
+      { class: 'actions' },
+      waiting ? h('p', { class: 'waiting' }, waiting) : button('次のラウンドへ', next, 'btn primary big'),
+    ),
   );
 }
 

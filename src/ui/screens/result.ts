@@ -28,6 +28,7 @@ export function renderResult(
   g: Extract<GameState, { phase: 'ended' }>,
   names: PerRole<string>,
   ai: AiMatch | null,
+  online = false,
 ): HTMLElement {
   const e = g.ending;
   const t = describeEnding(e, g.family, names);
@@ -80,7 +81,14 @@ export function renderResult(
       { class: 'actions' },
       button(
         'もう一度',
-        () => nav.go(ai ? { name: 'aiSetup', dealt: null } : { name: 'setup', dealt: null }),
+        () =>
+          nav.go(
+            online
+              ? { name: 'online', session: null, code: null, strategy: 'nostr', since: Date.now() }
+              : ai
+                ? { name: 'aiSetup', dealt: null }
+                : { name: 'setup', dealt: null },
+          ),
         'btn primary big',
       ),
       button('タイトルへ', () => nav.go({ name: 'title' }), 'btn big'),
