@@ -20,15 +20,15 @@ export const actionToken = (a: ActionChoice): ActionToken => (a.overtime ? 'over
 export type Preset = 'ask' | 'ok' | 'no';
 export const PRESET_TEXT: Readonly<Record<Preset, string>> = {
   ask: 'お願いしていい?',
-  ok: 'いいよー',
+  ok: 'やるよー',
   no: 'ごめん、無理',
 };
 
 export type Msg =
   /** つながったら互いに送る。session はページを開いている間だけ同じ */
   | { readonly t: 'hello'; readonly v: number; readonly session: string; readonly name: string }
-  /** ホスト → ゲスト: 役と名前 */
-  | { readonly t: 'setup'; readonly hostRole: Role; readonly names: PerRole<string> }
+  /** ホスト → ゲスト: 役と名前、相談フェイズを使うか */
+  | { readonly t: 'setup'; readonly hostRole: Role; readonly names: PerRole<string>; readonly consult: boolean }
   /** ホスト → ゲスト: ゲームの状態(山札と seed は伏せる) */
   | { readonly t: 'state'; readonly game: GameState }
   | { readonly t: 'commit'; readonly key: string; readonly hash: string }
@@ -58,7 +58,9 @@ export function parseMsg(data: unknown): Msg | null {
     case 'setup': {
       const names = data.names;
       if (!isRole(data.hostRole) || !isObj(names) || !isStr(names.husband, 24) || !isStr(names.wife, 24)) return null;
-      return { t: 'setup', hostRole: data.hostRole, names: { husband: names.husband, wife: names.wife } };
+      // consult がない(古い版のホスト)は相談ありとして扱う
+      const consult = data.consult !== false;
+      return { t: 'setup', hostRole: data.hostRole, names: { husband: names.husband, wife: names.wife }, consult };
     }
     case 'state':
       // 状態はホストのエンジンが作ったもの。画面が使う最低限の形だけ確かめる

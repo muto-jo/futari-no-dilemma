@@ -7,7 +7,7 @@ import { OnlineSession } from '../../net/session.ts';
 import type { Nav, Screen } from '../app.ts';
 import { button, h } from '../dom.ts';
 import { eventCard, logView, nameTag, panel, playerClass, resetLogView, statusPanel } from '../parts.ts';
-import { DEFAULT_NAMES, PROMISE_NAME, PROMISE_SPEECH, ROLE_LABEL, roleCardInfo } from '../text.ts';
+import { isDefaultName, PROMISE_NAME, PROMISE_SPEECH, randomName, ROLE_LABEL, roleCardInfo } from '../text.ts';
 import { actionChoice } from './game.ts';
 import {
   choicePanel,
@@ -46,7 +46,17 @@ export const normalizeCode = (s: string): string =>
     .slice(0, CODE_LEN);
 
 /** 部屋の設定(描き直しても残す) */
-const form = { role: 'husband' as Role, strategy: 'nostr' as Strategy, code: '', busy: false, error: '' };
+const form = {
+  role: 'husband' as Role,
+  strategy: 'nostr' as Strategy,
+  /** 相談フェイズを使うか(部屋を作る人が決める) */
+  consult: true,
+  /** null はまだ決めていない(最初の表示で決める) */
+  name: null as string | null,
+  code: '',
+  busy: false,
+  error: '',
+};
 /** 選びかけのカードとチャットの下書き(相手の通信で描き直しても消えないように) */
 const draft = { key: '', choice: null as string | null, chat: '', chatFocused: false };
 let lastKey: string | null = null;
@@ -66,12 +76,20 @@ export function renderOnline(nav: Nav, s: OnlineScreen): HTMLElement {
 // ---- 部屋を作る/入る --------------------------------------------------
 
 function lobby(nav: Nav): HTMLElement {
+  // 名前を自分で入れたことがなければ、候補からランダムに選ぶ(役名の「夫」「妻」と紛れないように)
+  if (form.name === null) {
+    const saved = nav.names[form.role];
+    form.name = isDefaultName(saved) ? randomName() : saved;
+  }
   const nameInput = h('input', {
     id: 'online-name',
     type: 'text',
-    value: nav.names[form.role],
+    value: form.name,
     maxlength: 12,
     autocomplete: 'off',
+    oninput: () => {
+      form.name = nameInput.value;
+    },
   });
   const codeInput = h('input', {
     id: 'online-code',
@@ -106,7 +124,7 @@ function lobby(nav: Nav): HTMLElement {
     return h('div', { class: 'field', role: 'group', 'aria-label': label }, h('div', { class: 'field-label' }, label), h('div', { class: 'choices row' }, buttons));
   };
 
-  const myName = (role: Role) => nameInput.value.trim().slice(0, 12) || DEFAULT_NAMES[role];
+  const myName = () => nameInput.value.trim().slice(0, 12) || randomName();
 
   const start = async (isHost: boolean) => {
     if (form.busy) return;
@@ -116,14 +134,15 @@ function lobby(nav: Nav): HTMLElement {
       nav.render();
       return;
     }
-    const name = myName(form.role);
+    const name = myName();
+    form.name = name;
     nav.setNames({ ...nav.names, [form.role]: name });
     form.busy = true;
     form.error = '';
     nav.render();
     try {
       const link = await joinTrystero(form.strategy, code);
-      const session = new OnlineSession({ isHost, name, link, hostRole: form.role });
+      const session = new OnlineSession({ isHost, name, link, hostRole: form.role, consult: form.consult });
       session.onChange = () => nav.render();
       resetLogView();
       nav.go({ name: 'online', session, code, strategy: form.strategy, since: Date.now() });
@@ -165,11 +184,18 @@ function lobby(nav: Nav): HTMLElement {
         'あなたの役',
         ROLES.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}役` })),
         () => form.role,
-        (r) => {
-          if (nameInput.value === nav.names[form.role]) nameInput.value = nav.names[r];
-          form.role = r;
-        },
+        (r) => (form.role = r),
       ),
+      toggle(
+        '相談フェイズ',
+        [
+          { value: 'on', label: 'あり' },
+          { value: 'off', label: 'なし' },
+        ],
+        () => (form.consult ? 'on' : 'off'),
+        (v) => (form.consult = v === 'on'),
+      ),
+      h('p', { class: 'note' }, '「なし」にすると、相談をせずに約束カード → 行動カードへ進みます。'),
       h('div', { class: 'actions' }, button('部屋を作る', () => void start(true), 'btn primary big', { disabled: form.busy })),
     ),
     panel(
@@ -210,7 +236,7 @@ function waiting(nav: Nav, s: OnlineScreen, session: OnlineSession): HTMLElement
             h('p', { class: 'handoff-what' }, '合言葉'),
             h('p', { class: 'room-code', 'aria-label': `合言葉 ${s.code}` }, s.code),
             h('p', null, 'この合言葉を相手に伝えてください。相手が入ると始まります。'),
-            h('p', { class: 'note' }, `接続の方式: ${strategyLabel}`),
+            h('p', { class: 'note' }, `接続の方式: ${strategyLabel} / 相談フェイズ: ${session.consult ? 'あり' : 'なし'}`),
           )
         : h(
             'section',
@@ -296,7 +322,9 @@ function phaseView(nav: Nav, session: OnlineSession, me: Role, peer: Role): HTML
                 'div',
                 { class: 'actions' },
                 button(jikkaLabel(g.event.weight), () => session.decideJikka(true), 'btn', { disabled: closed }),
-                button('使わずに相談へ', () => session.decideJikka(false), 'btn primary', { disabled: closed }),
+                button(session.consult ? '使わずに相談へ' : '使わずに進む', () => session.decideJikka(false), 'btn primary', {
+                  disabled: closed,
+                }),
               ),
             )
           : waitingNote(`${names[peer]}が実家ヘルプを使うか決めています…`),
@@ -351,9 +379,19 @@ function phaseView(nav: Nav, session: OnlineSession, me: Role, peer: Role): HTML
           waitingNote(session.peerPicked ? '公開します…' : `${names[peer]}が選ぶのを待っています…`),
         );
       }
+      // 相談なしの部屋では相談の画面を通らないので、そこで出すお知らせをここで出す
+      const noConsultNotices =
+        !session.consult && isPromise
+          ? [
+              shishunkiNotice(g),
+              h('p', { class: 'note' }, 'この部屋は相談なしです。約束カードを選んでください。'),
+              ...downNotices(g, names),
+            ]
+          : [];
       return h(
         'div',
         { class: 'phase' },
+        noConsultNotices,
         eventCard(g.turn.event, g.turn.weight),
         g.phase === 'action' ? promiseReveal(g, names) : null,
         body,
@@ -425,7 +463,7 @@ function chatPanel(session: OnlineSession, me: Role): HTMLElement {
           ),
         )
       : null,
-    h('div', { class: 'presets' }, preset('ask', 'お願いしていい?'), preset('ok', 'いいよー'), preset('no', 'ごめん、無理')),
+    h('div', { class: 'presets' }, preset('ask', 'お願いしていい?'), preset('ok', 'やるよー'), preset('no', 'ごめん、無理')),
     h('div', { class: 'chat-row' }, input, button('送る', send, 'btn small', { disabled: closed })),
     h('p', { class: 'note' }, '声で相談したいときは、電話や通話アプリを別に使ってください。'),
   );

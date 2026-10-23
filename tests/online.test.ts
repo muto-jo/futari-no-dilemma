@@ -54,7 +54,9 @@ describe('コミット&リビール', () => {
   it('おかしなメッセージは受け取らない', () => {
     expect(parseMsg({ t: 'reveal', key: '1:promise', choice: 'cheat', nonce: '0'.repeat(32) })).toBeNull();
     expect(parseMsg({ t: 'chat', text: 'x'.repeat(41), preset: null })).toBeNull();
-    expect(parseMsg({ t: 'chat', text: 'なんでも', preset: 'ok' })).toEqual({ t: 'chat', text: 'いいよー', preset: 'ok' });
+    expect(parseMsg({ t: 'chat', text: 'なんでも', preset: 'ok' })).toEqual({ t: 'chat', text: 'やるよー', preset: 'ok' });
+    // consult のない setup(古い版のホスト)は相談ありとして受け取る
+    expect(parseMsg({ t: 'setup', hostRole: 'wife', names: { husband: 'a', wife: 'b' } })).toMatchObject({ consult: true });
     expect(parseMsg('hello')).toBeNull();
   });
 });
@@ -68,6 +70,16 @@ describe('オンライン対戦の進行', () => {
     expect(guest.myRole).toBe('husband');
     expect(guest.names).toEqual({ husband: 'はなこ', wife: 'たろう' });
     expect(guest.game?.round).toBe(1);
+  });
+
+  it('名前がかぶったら、ゲストの名前に「2」を付ける', async () => {
+    const net = new MemoryNet();
+    const host = new OnlineSession({ isHost: true, name: 'かな', link: net.a, hostRole: 'husband' });
+    const guest = new OnlineSession({ isHost: false, name: 'かな', link: net.b });
+    net.connect();
+    await flush();
+    expect(host.names).toEqual({ husband: 'かな', wife: 'かな2' });
+    expect(guest.names).toEqual({ husband: 'かな', wife: 'かな2' });
   });
 
   it('ゲストに届く状態には山札の並びと seed がない', async () => {
@@ -128,6 +140,39 @@ describe('オンライン対戦の進行', () => {
     const strip = (x: GameState) => ({ ...x, deck: [], deckPos: 0, seed: 0, rngState: 0 });
     expect(guest.game).toEqual(strip(host.game!));
     expect(host.game!.phase === 'ended' && host.game!.ending.kind).toBe('success');
+  });
+
+  it('相談なしの部屋では、相談フェイズを通らずに約束カードへ進む', async () => {
+    const net = new MemoryNet();
+    const host = new OnlineSession({ isHost: true, name: 'たろう', link: net.a, hostRole: 'wife', seed: 7, consult: false });
+    const guest = new OnlineSession({ isHost: false, name: 'はなこ', link: net.b });
+    const phases: string[] = [];
+    guest.onChange = () => guest.game && phases.push(guest.game.phase);
+    net.connect();
+    await flush();
+    expect(guest.consult).toBe(false);
+    if (host.game!.phase === 'event') host.decideJikka(false);
+    guest.decideJikka(false);
+    await flush();
+    expect(host.game!.phase).toBe('promise');
+    expect(guest.game!.phase).toBe('promise');
+    expect(phases).not.toContain('consult');
+    // 約束 → 行動 → 次のラウンドでも、相談なしのまま
+    await host.pick('together');
+    await guest.pick('together');
+    await flush();
+    await host.pick('do');
+    await guest.pick('do');
+    await flush();
+    host.ready();
+    guest.ready();
+    await flush();
+    if (host.game!.phase === 'event') host.decideJikka(false);
+    guest.decideJikka(false);
+    await flush();
+    expect(host.game!.round).toBe(2);
+    expect(guest.game!.phase).toBe('promise');
+    expect(phases).not.toContain('consult');
   });
 
   it('チャット(定型文と自由入力)', async () => {

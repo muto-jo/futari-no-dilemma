@@ -41,6 +41,8 @@ export interface OnlineOptions {
   readonly link: Link;
   /** ホストの役(ゲストは残りの役になる) */
   readonly hostRole?: Role;
+  /** 相談フェイズを使うか(ホストが決める。既定はあり) */
+  readonly consult?: boolean;
   readonly seed?: number;
   /** 切断から終了までの猶予 */
   readonly reconnectMs?: number;
@@ -68,6 +70,8 @@ export class OnlineSession {
   closeReason: string | null = null;
   myRole: Role | null = null;
   names: PerRole<string> | null = null;
+  /** 相談フェイズを使うか。ゲストはホストから受け取る */
+  consult: boolean;
   /** ホストは完全な状態、ゲストは伏せた状態 */
   game: GameState | null = null;
   chat: ChatLine[] = [];
@@ -94,6 +98,7 @@ export class OnlineSession {
     this.myName = opts.name;
     this.#link = opts.link;
     this.#hostRole = opts.hostRole ?? 'husband';
+    this.consult = opts.consult ?? true;
     this.#seed = opts.seed;
     this.#reconnectMs = opts.reconnectMs ?? 60_000;
     this.#link.onPeerJoin = (id) => this.#onPeerJoin(id);
@@ -233,6 +238,7 @@ export class OnlineSession {
         if (this.isHost) return;
         this.myRole = opp(msg.hostRole);
         this.names = msg.names;
+        this.consult = msg.consult;
         this.status = 'playing';
         return this.#changed();
       case 'state':
@@ -355,7 +361,9 @@ export class OnlineSession {
     if (this.game) return;
     const me = this.#hostRole;
     this.myRole = me;
-    this.names = me === 'husband' ? { husband: this.myName, wife: this.#peerName } : { husband: this.#peerName, wife: this.myName };
+    // 名前がかぶったら(初期値の候補が偶然同じなど)、相手の名前に「2」を付けて区別する
+    const peerName = this.#peerName === this.myName ? `${this.#peerName}2` : this.#peerName;
+    this.names = me === 'husband' ? { husband: this.myName, wife: peerName } : { husband: peerName, wife: this.myName };
     const seed = this.#seed ?? Number.parseInt(randomHex(4), 16);
     this.game = createGame({ seed, names: this.names });
     this.status = 'playing';
@@ -365,7 +373,7 @@ export class OnlineSession {
 
   #sendSetupAndState(): void {
     if (!this.game || !this.names || !this.myRole) return;
-    this.#send({ t: 'setup', hostRole: this.myRole, names: this.names });
+    this.#send({ t: 'setup', hostRole: this.myRole, names: this.names, consult: this.consult });
     this.#send({ t: 'state', game: redact(this.game) });
   }
 
@@ -399,7 +407,8 @@ export class OnlineSession {
           break;
         }
         case 'consult':
-          if (both) input = { type: 'endConsult' };
+          // 相談なしの部屋では、相談フェイズをそのまま終える
+          if (both || !this.consult) input = { type: 'endConsult' };
           break;
         case 'promise':
         case 'action': {

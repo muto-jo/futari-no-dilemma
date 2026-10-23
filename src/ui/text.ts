@@ -4,6 +4,25 @@ import type { ActionCard, PerRole, PromiseCard, Role, RoleCard } from '../engine
 export const ROLE_LABEL: PerRole<string> = { husband: '夫', wife: '妻' };
 export const DEFAULT_NAMES: PerRole<string> = { husband: '夫', wife: '妻' };
 
+/** オンライン対戦の名前の初期値の候補。役とは結びつけず、10個全体から選ぶ */
+export const NAME_CANDIDATES: readonly string[] = [
+  'あきら',
+  'かいと',
+  'さとる',
+  'たつや',
+  'なると',
+  'あい',
+  'かな',
+  'さき',
+  'たえ',
+  'なみ',
+];
+
+export const randomName = (): string => NAME_CANDIDATES[Math.floor(Math.random() * NAME_CANDIDATES.length)]!;
+
+/** 既定の「夫」「妻」のまま(自分で名前を入れていない) */
+export const isDefaultName = (name: string): boolean => name === DEFAULT_NAMES.husband || name === DEFAULT_NAMES.wife;
+
 const promiseCard = (id: PromiseCard) => {
   const c = cards.promiseCards.find((x) => x.id === id);
   if (!c) throw new Error(`promise card ${id}`);
