@@ -31,7 +31,7 @@ export const AI_TYPES: readonly AiType[] = [
   { id: 'B', label: '頑張りすぎさん', strategy: '頑張りすぎ', description: '頼まれたら全部受けるが、自分からは頼まない' },
   { id: 'C', label: 'きっちり半分さん', strategy: '約束交代', description: '毎回「今日は私、次はあなた」と約束する' },
   { id: 'D', label: '黙ってお返しさん', strategy: 'しっぺ返し', description: '相談しない。前回あなたがしたことを返す' },
-  { id: 'E', label: 'ふざけパパ', strategy: 'ふざけパパ', description: '約束はするが、4回に1回破る' },
+  { id: 'E', label: 'ふざけ屋さん', strategy: 'ふざけパパ', description: '約束はするが、4回に1回破る' },
   { id: 'F', label: '甘え上手さん', strategy: '甘え上手', description: '毎回お願いしてくる。頼まれても断る' },
 ];
 
