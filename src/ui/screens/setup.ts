@@ -5,7 +5,7 @@ import { Hotseat } from '../hotseat.ts';
 import { nameTag, playerClass, resetLogView } from '../parts.ts';
 import { DEFAULT_NAMES, ROLE_LABEL, roleCardInfo } from '../text.ts';
 
-function randomSeed(): number {
+export function randomSeed(): number {
   try {
     return crypto.getRandomValues(new Uint32Array(1))[0]!;
   } catch {

@@ -1,33 +1,30 @@
+// 1台で2人(SPEC 5.1)のゲーム画面
 import { jikkaHolder } from '../../engine/game.ts';
-import { PARAMS } from '../../engine/params.ts';
-import { ROLES, opp, type ActionChoice, type GameState, type PromiseCard, type Role } from '../../engine/types.ts';
+import { opp } from '../../engine/types.ts';
 import type { Nav } from '../app.ts';
-import { describeEnding } from '../describe.ts';
 import { button, h } from '../dom.ts';
 import type { Hotseat } from '../hotseat.ts';
-import { eventCard, logView, nameTag, panel, playerClass, roundResult, statusPanel } from '../parts.ts';
-import { ACTION_NAME, PROMISE_NAME, PROMISE_SPEECH, progressCard, roleAndName, roleCardInfo } from '../text.ts';
-
-/** 選んでいる途中のカード(「これに決める」まで確定しない)。DOMにもエンジンにも出さない */
-let selected: { who: Role; key: string } | null = null;
+import { eventCard, logView, nameTag, panel, playerClass, statusPanel } from '../parts.ts';
+import { ACTION_NAME, PROMISE_NAME, PROMISE_SPEECH, roleAndName, roleCardInfo } from '../text.ts';
+import {
+  choicePanel,
+  downNotices,
+  endedView,
+  gameHeader,
+  jikkaLabel,
+  promiseReveal,
+  resolvedView,
+  shishunkiNotice,
+  type Choice,
+} from './shared.ts';
 
 export function renderGame(nav: Nav, hs: Hotseat): HTMLElement {
   const g = hs.game;
   const act = (f: () => void) => () => {
     f();
-    selected = null;
     nav.render(true);
   };
-  const quit = () => {
-    if (g.phase === 'ended' || window.confirm('ゲームを中断してタイトルに戻りますか?')) nav.go({ name: 'title' });
-  };
-  const header = h(
-    'header',
-    { class: 'bar-head' },
-    button('タイトルへ', quit, 'btn small ghost'),
-    h('h1', null, g.phase === 'ended' ? 'ゲーム終了' : `第${g.round}ラウンド`),
-    button('ルール', () => nav.go({ name: 'rules', back: { name: 'game', play: hs } }), 'btn small ghost'),
-  );
+  const header = gameHeader(nav, g, { name: 'game', play: hs });
 
   // 受け渡しの画面は、ほかの情報を出さない
   const st = hs.stage;
@@ -86,14 +83,10 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
   switch (g.phase) {
     case 'event': {
       const holder = jikkaHolder(g);
-      const enteredLate = g.lateGame && !g.history[g.history.length - 1]?.lateGame;
-      const shishunki = progressCard('P_SHISHUNKI');
       return h(
         'div',
         { class: 'phase' },
-        enteredLate
-          ? h('section', { class: 'notice late' }, h('h3', null, `${shishunki.name}カード`), h('p', null, shishunki.text))
-          : null,
+        shishunkiNotice(g),
         eventCard(g.event),
         holder
           ? panel(
@@ -102,30 +95,19 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
               h(
                 'div',
                 { class: 'actions' },
-                button(
-                  `使う(重さ${g.event.weight}→${Math.max(1, g.event.weight - 1)})`,
-                  act(() => hs.confirmEvent(true)),
-                  'btn',
-                ),
+                button(jikkaLabel(g.event.weight), act(() => hs.confirmEvent(true)), 'btn'),
                 button('使わずに相談へ', act(() => hs.confirmEvent(false)), 'btn primary'),
               ),
             )
           : h('div', { class: 'actions' }, button('相談へ', act(() => hs.confirmEvent(false)), 'btn primary big')),
       );
     }
-    case 'consult': {
-      const downs = ROLES.filter((r) => g.turn.down[r]);
+    case 'consult':
       return h(
         'div',
         { class: 'phase' },
         eventCard(g.turn.event, g.turn.weight),
-        downs.map((r) =>
-          h(
-            'section',
-            { class: 'notice down' },
-            h('p', null, nameTag(r, names), ` は疲労${PARAMS.downTired}以上でダウン中。このラウンドは家事ができません(約束は「あなたに頼む」、行動は「任せる」)。`),
-          ),
-        ),
+        downNotices(g, names),
         panel(
           '相談してください',
           h('p', null, '2人で自由に話しましょう。疲れていたら「お願いしていい?」と頼めます。'),
@@ -139,9 +121,22 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
           h('div', { class: 'actions' }, button('相談終了', act(() => hs.endConsult()), 'btn primary big')),
         ),
       );
-    }
     case 'promise':
-      if (hs.stage.kind === 'choose') return chooseView(hs, act);
+      if (hs.stage.kind === 'choose') {
+        const choices: Choice[] = hs.choosingPromises().map((p) => ({
+          key: p,
+          label: PROMISE_NAME(p),
+          sub: `「${PROMISE_SPEECH(p)}」`,
+        }));
+        return h(
+          'div',
+          { class: 'phase' },
+          eventCard(g.turn.event, g.turn.weight),
+          choicePanel(hs.stage.who, names, 'の約束カード', choices, (key) =>
+            act(() => hs.pickPromise(hs.choosingPromises().find((p) => p === key)!))(),
+          ),
+        );
+      }
       return h(
         'div',
         { class: 'phase' },
@@ -153,12 +148,24 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
         ),
       );
     case 'action':
-      if (hs.stage.kind === 'choose') return chooseView(hs, act);
+      if (hs.stage.kind === 'choose') {
+        const list = hs.choosingActions();
+        const choices = list.map(actionChoice);
+        return h(
+          'div',
+          { class: 'phase' },
+          eventCard(g.turn.event, g.turn.weight),
+          promiseReveal(g, names),
+          choicePanel(hs.stage.who, names, 'の行動カード', choices, (key) =>
+            act(() => hs.pickAction(list[choices.findIndex((c) => c.key === key)]!))(),
+          ),
+        );
+      }
       return h(
         'div',
         { class: 'phase' },
         eventCard(g.turn.event, g.turn.weight),
-        promiseReveal(g),
+        promiseReveal(g, names),
         panel(
           '行動カード',
           h('p', null, '約束と違うカードを出すこともできます。1人ずつ、見えないように選びます。'),
@@ -166,125 +173,14 @@ function phaseView(nav: Nav, hs: Hotseat, act: Act): HTMLElement {
         ),
       );
     case 'resolved':
-      return h(
-        'div',
-        { class: 'phase' },
-        eventCard(g.last.event, g.last.weight),
-        roundResult(g.last, names),
-        h('div', { class: 'actions' }, button('次のラウンドへ', act(() => hs.next()), 'btn primary big')),
-      );
-    case 'ended': {
-      const t = describeEnding(g.ending, g.family, names);
-      const sudachi = progressCard('P_SUDACHI');
-      return h(
-        'div',
-        { class: 'phase' },
-        g.last ? eventCard(g.last.event, g.last.weight) : null,
-        g.last ? roundResult(g.last, names) : h('section', { class: 'notice late' }, h('h3', null, `${sudachi.name}カード`), h('p', null, sudachi.text)),
-        h('section', { class: 'notice ending' }, h('h3', null, t.title), h('p', null, t.message)),
-        h('div', { class: 'actions' }, button('結果を見る', () => nav.go({ name: 'result', play: hs }), 'btn primary big')),
-      );
-    }
+      return resolvedView(g, names, act(() => hs.next()));
+    case 'ended':
+      return endedView(g, names, () => nav.go({ name: 'result', game: g, names, ai: null }));
   }
 }
 
-function promiseReveal(g: Extract<GameState, { phase: 'action' }>): HTMLElement {
-  return panel(
-    '約束カードの公開',
-    h(
-      'ul',
-      { class: 'reveal' },
-      ROLES.map((r) => {
-        const p = g.promises[r];
-        return h(
-          'li',
-          { class: playerClass(r) },
-          h('b', null, g.players[r].name),
-          `: 「${PROMISE_NAME(p)}」`,
-          p ? h('span', { class: 'speech' }, ` ${PROMISE_SPEECH(p)}`) : null,
-        );
-      }),
-    ),
-  );
-}
-
-interface Choice {
-  key: string;
-  label: string;
-  sub?: string;
-  pick: () => void;
-}
-
-function chooseView(hs: Hotseat, act: Act): HTMLElement {
-  const g = hs.game;
-  const st = hs.stage;
-  if (st.kind !== 'choose' || (g.phase !== 'promise' && g.phase !== 'action')) throw new Error('chooseView');
-  const who = st.who;
-  const isPromise = g.phase === 'promise';
-
-  const choices: Choice[] = isPromise
-    ? hs.choosingPromises().map((p: PromiseCard) => ({
-        key: p,
-        label: PROMISE_NAME(p),
-        sub: `「${PROMISE_SPEECH(p)}」`,
-        pick: () => hs.pickPromise(p),
-      }))
-    : hs.choosingActions().map((a: ActionChoice) => ({
-        key: a.overtime ? 'overtime' : a.card,
-        label: a.overtime ? `${ACTION_NAME.delegate}(残業を使う)` : ACTION_NAME[a.card],
-        sub: a.overtime ? roleCardInfo('overtime').text : undefined,
-        pick: () => hs.pickAction(a),
-      }));
-
-  const current = selected?.who === who ? choices.find((c) => c.key === selected?.key) : undefined;
-  const select = (key: string) => () => {
-    selected = { who, key };
-    // 選択の見た目だけ変える(スクロール位置を保つ)
-    for (const el of document.querySelectorAll<HTMLButtonElement>('.choice')) {
-      el.setAttribute('aria-pressed', String(el.dataset.key === key));
-    }
-    const ok = document.querySelector<HTMLButtonElement>('#decide');
-    if (ok) ok.disabled = false;
-  };
-
-  return h(
-    'div',
-    { class: 'phase' },
-    eventCard(g.turn.event, g.turn.weight),
-    g.phase === 'action' ? promiseReveal(g) : null,
-    panel(
-      h('span', null, nameTag(who, hs.names), isPromise ? ' の約束カード' : ' の行動カード'),
-      h(
-        'div',
-        { class: 'choices' },
-        choices.map((c) =>
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'choice',
-              'data-key': c.key,
-              'aria-pressed': String(current?.key === c.key),
-              onclick: select(c.key),
-            },
-            h('span', { class: 'choice-label' }, c.label),
-            c.sub ? h('span', { class: 'choice-sub' }, c.sub) : null,
-          ),
-        ),
-      ),
-      h(
-        'div',
-        { class: 'actions' },
-        button(
-          'これに決める',
-          () => {
-            const c = choices.find((x) => x.key === selected?.key && selected?.who === who);
-            if (c) act(c.pick)();
-          },
-          'btn primary big',
-          { id: 'decide', disabled: current === undefined },
-        ),
-      ),
-    ),
-  );
+export function actionChoice(a: { card: 'do' | 'delegate'; overtime?: boolean }): Choice {
+  return a.overtime
+    ? { key: 'overtime', label: `${ACTION_NAME.delegate}(残業を使う)`, sub: roleCardInfo('overtime').text }
+    : { key: a.card, label: ACTION_NAME[a.card] };
 }

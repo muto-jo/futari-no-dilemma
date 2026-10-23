@@ -15,7 +15,7 @@ export function renderTitle(nav: Nav): HTMLElement {
       'nav',
       { class: 'menu' },
       button('1台で2人', () => nav.go({ name: 'setup', dealt: null }), 'btn primary big'),
-      button(h('span', null, 'AIと対戦', h('small', null, '準備中')), () => {}, 'btn big', { disabled: true }),
+      button('AIと対戦', () => nav.go({ name: 'aiSetup', dealt: null }), 'btn big'),
       button(h('span', null, 'オンライン対戦', h('small', null, '準備中')), () => {}, 'btn big', { disabled: true }),
       button('ルール', () => nav.go({ name: 'rules', back: { name: 'title' } }), 'btn big'),
     ),

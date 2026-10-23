@@ -451,6 +451,70 @@ h4 {
   font-size: 1.15rem;
   font-weight: 700;
 }
+.choices.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.choices.row .choice {
+  text-align: center;
+}
+.choice.compact {
+  min-height: 52px;
+  padding: 10px 14px;
+}
+.choice.compact .choice-label {
+  font-size: 1rem;
+}
+.choice:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.field-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* ---- 相談のやり取り ---- */
+.dialogue {
+  list-style: none;
+  padding: 0 !important;
+  margin: 8px 0 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.say {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 !important;
+}
+.say.me {
+  flex-direction: row-reverse;
+}
+.say .name-tag {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.say .bubble {
+  background: var(--p-soft);
+  border: 1px solid var(--p);
+  border-radius: 14px;
+  padding: 6px 12px;
+  max-width: 75%;
+}
+.say.system {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.ai-reveal {
+  font-size: 1.3rem;
+}
+
 .choice-sub {
   display: block;
   font-size: 0.85rem;
@@ -533,7 +597,7 @@ h4 {
 .field label {
   display: block;
   font-size: 0.9rem;
-  color: var(--p);
+  color: var(--p, var(--text));
   font-weight: 700;
 }
 .field input {
@@ -541,7 +605,7 @@ h4 {
   font: inherit;
   padding: 10px 12px;
   min-height: 52px;
-  border: 2px solid var(--p);
+  border: 2px solid var(--p, var(--line));
   border-radius: 10px;
   background: var(--surface);
   color: var(--text);

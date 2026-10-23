@@ -1,6 +1,9 @@
 // 画面の切り替え。状態が変わったら今の画面を描き直す
-import type { PerRole } from '../engine/types.ts';
+import type { GameState, PerRole } from '../engine/types.ts';
+import type { AiMatch } from './aiMatch.ts';
 import type { Hotseat } from './hotseat.ts';
+import { renderAiGame } from './screens/aiGame.ts';
+import { renderAiSetup } from './screens/aiSetup.ts';
 import { renderGame } from './screens/game.ts';
 import { renderResult } from './screens/result.ts';
 import { renderRules } from './screens/rules.ts';
@@ -13,7 +16,15 @@ export type Screen =
   | { readonly name: 'rules'; readonly back: Screen }
   | { readonly name: 'setup'; readonly dealt: Hotseat | null }
   | { readonly name: 'game'; readonly play: Hotseat }
-  | { readonly name: 'result'; readonly play: Hotseat };
+  | { readonly name: 'aiSetup'; readonly dealt: AiMatch | null }
+  | { readonly name: 'aiGame'; readonly match: AiMatch }
+  | {
+      readonly name: 'result';
+      readonly game: Extract<GameState, { phase: 'ended' }>;
+      readonly names: PerRole<string>;
+      /** AI戦なら相手のAI(結果画面でタイプを明かす) */
+      readonly ai: AiMatch | null;
+    };
 
 export interface Nav {
   /** 別の画面へ(先頭までスクロールする) */
@@ -51,7 +62,10 @@ export function startApp(root: HTMLElement): void {
 
   // 遊んでいる途中で閉じたり再読み込みしたりしないように
   window.addEventListener('beforeunload', (e) => {
-    if (screen.name === 'game' && screen.play.game.phase !== 'ended') e.preventDefault();
+    const playing =
+      (screen.name === 'game' && screen.play.game.phase !== 'ended') ||
+      (screen.name === 'aiGame' && screen.match.game.phase !== 'ended');
+    if (playing) e.preventDefault();
   });
 
   draw(true);
@@ -67,7 +81,11 @@ function view(s: Screen, nav: Nav): HTMLElement {
       return renderSetup(nav, s.dealt);
     case 'game':
       return renderGame(nav, s.play);
+    case 'aiSetup':
+      return renderAiSetup(nav, s.dealt);
+    case 'aiGame':
+      return renderAiGame(nav, s.match);
     case 'result':
-      return renderResult(nav, s.play);
+      return renderResult(nav, s.game, s.names, s.ai);
   }
 }

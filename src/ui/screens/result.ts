@@ -1,8 +1,8 @@
-import { ROLES, type ScoreBreakdown } from '../../engine/types.ts';
+import { ROLES, type GameState, type PerRole, type ScoreBreakdown } from '../../engine/types.ts';
+import type { AiMatch } from '../aiMatch.ts';
 import type { Nav } from '../app.ts';
 import { describeEnding } from '../describe.ts';
 import { button, h } from '../dom.ts';
-import type { Hotseat } from '../hotseat.ts';
 import { logView, nameTag, panel, playerClass } from '../parts.ts';
 
 const QUESTIONS = [
@@ -23,11 +23,13 @@ const ROWS: [string, (s: ScoreBreakdown) => string][] = [
   ['家族成功ボーナス', (s) => (s.bonus ? `+${s.bonus}` : '—')],
 ];
 
-export function renderResult(nav: Nav, hs: Hotseat): HTMLElement {
-  const g = hs.game;
-  if (g.phase !== 'ended') throw new Error('result before end');
+export function renderResult(
+  nav: Nav,
+  g: Extract<GameState, { phase: 'ended' }>,
+  names: PerRole<string>,
+  ai: AiMatch | null,
+): HTMLElement {
   const e = g.ending;
-  const names = hs.names;
   const t = describeEnding(e, g.family, names);
   const finishedNormally = e.kind === 'success' || e.kind === 'completed';
 
@@ -58,6 +60,14 @@ export function renderResult(nav: Nav, hs: Hotseat): HTMLElement {
       e.mvp.length === 1 ? h('p', { class: 'mvp' }, '今回のMVP: ', nameTag(e.mvp[0]!, names)) : null,
       e.mvp.length === 2 ? h('p', { class: 'mvp' }, '今回のMVP: 2人とも(同点)') : null,
     ),
+    ai
+      ? panel(
+          '相手のAI',
+          ai.surprise ? h('p', { class: 'note' }, 'おまかせで選ばれていたのは……') : null,
+          h('p', { class: 'ai-reveal' }, h('b', null, `${ai.type.id} ${ai.type.label}`)),
+          h('p', null, ai.type.description),
+        )
+      : null,
     panel(
       '得点の内訳',
       table,
@@ -68,7 +78,11 @@ export function renderResult(nav: Nav, hs: Hotseat): HTMLElement {
     h(
       'div',
       { class: 'actions' },
-      button('もう一度', () => nav.go({ name: 'setup', dealt: null }), 'btn primary big'),
+      button(
+        'もう一度',
+        () => nav.go(ai ? { name: 'aiSetup', dealt: null } : { name: 'setup', dealt: null }),
+        'btn primary big',
+      ),
       button('タイトルへ', () => nav.go({ name: 'title' }), 'btn big'),
     ),
   );
